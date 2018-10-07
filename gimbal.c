@@ -13,16 +13,19 @@ timer settings:
 #include <avr/io.h>
 #include <util/delay.h>
 
-#define LED_PIN PB0
+#define MAXVAL (256+64)
+#define MINVAL (64)
+#define MIDVAL (MINVAL + (MAXVAL-MINVAL)/2)
 
-inline void long_delay(uint16_t delay){
+static inline void long_delay(uint16_t delay){
 	//using for loop so attiny 8bit timer doesn't overflow
 	for(delay /= 10; delay>0; delay--) _delay_ms(10);
 }
 
 int main() {
-	int8_t dCycle = 0;
-	int8_t dir = 1;
+	int16_t dCycle1 = 0, dCycle2 = 0;
+	int16_t dir1 = (MAXVAL - MINVAL)/10;
+	int16_t dir2 = -(MAXVAL - MINVAL)/10;
 	
 	//set the pin the LED is connected to as an output
 	DDRA |= (1 << PA5) | (1 << PA6);
@@ -30,20 +33,32 @@ int main() {
 	//timer config
 	//COM1A1 / COM1B1: set high on BOTTOM, clear on MATCH on COM1A/B
 	//WGM13 / WGM12 / WGM11 / ~WGM10: use fast PWM mode, with ICR1 as TOP
-	//CS10: no prescaler used
-	TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11);
-	TCCR1B = (1 << WGM12)| (1 << WGM13) | (1 << CS10);
+	//CS11: x8 prescaler
+	TCCR1A = 0b10100010;
+	TCCR1B = 0b00011010;
+	//TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11);
+	//TCCR1B = (1 << WGM12)| (1 << WGM13) | (1 << CS11);
+	
 	//set TOP
-	ICR1 = (256*20) << 2;
+	ICR1 = (128*5);
 	
-	
+
 	//main loop
 	while(1){
-		OCR1A = (250 + (dCycle/100.0) * 255.0) << 2;
-		dCycle += dir;
-		if(dCycle >= 100 || dCycle <= 0) dir = !dir;
-		
-		_delay_ms(100);
+		OCR1A = dCycle1;
+		dCycle1 += dir1;
+		if(dCycle1 >= MAXVAL || dCycle1 <= MINVAL){
+			dCycle1 = MIDVAL;
+			dir1 = -dir1;
+		}
+
+		OCR1B = dCycle2;
+		dCycle2 += dir2;
+		if(dCycle2 >= MAXVAL || dCycle2 <= MINVAL){
+			dCycle2 = MIDVAL;
+			dir2 = -dir2;
+		}
+		long_delay(500);
 	}
 	return 0;
 }
