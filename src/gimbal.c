@@ -32,26 +32,36 @@ int main() {
 	//enable timer compare A interrupt
 	TIMSK = (1 << OCIE1A);
 
-/* the following code block configures timer0 in a hacky one-shot configuration.
+	//setup ADC
+	//set 8-bit mode with input on ADC3
+	ADMUX = (1 << ADLAR) | (1 << MUX1) | (1 << MUX0);
+	//enable adc and set prescaler to /32
+	ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS0);
+	//disable digital input on PB3
+	DIDR0 = (1 << ADC3D);
+
+
 	//configure timer 0 to trigger one-shot at 2ms (500Hz) ~= 1MHz / (8*250)
 	//configure output to OC0B in inverting mode and set to fast pwm mode
 	TCCR0A = (1 << COM0B1) | (1 << COM0B0) | (1 << WGM01) | (1 << WGM00);
-	//configure fast pwm mode and set prescaler to /8
+	//configure fast pwm mode and set prescaler to /64
 	TCCR0B = (1 << WGM02) | (1 << CS01);
 	//set TOP to 0
 	OCR0A = 0;
 	//set MATCH to 2
 	OCR0B = 2;
-*/
+
 
 	//enable interrupts
 	sei();
 	//main loop
 	while(1){
-		pos = 1;
-		_delay_ms(500);
-		pos = 128;
-		_delay_ms(500);
+		//start adc read
+		ADCSRA |= (1 << ADSC);
+		//wait until done
+		while(ADCSRA & (1 << ADSC));
+		pos = ADCH;
+		OCR0B = pos;
 	}	
 	
 	return 0;
@@ -60,15 +70,5 @@ int main() {
 //timer 1 compare A interrupt
 ISR (TIMER1_COMPA_vect) {
 	//trigger one-shot in timer0 (set to full)
-	//TCNT0 = pos;
-	cli();
-	PORTB |= 1 << PB1;
-	_delay_ms(1);
-	//delay (1000 + 4 * pos)us gives a range of 1ms - 2.024ms
-	_delay_us(pos);
-	_delay_us(pos);
-	_delay_us(pos);
-	_delay_us(pos);
-	PORTB &= ~(1<<PB1);
-	sei();
+	TCNT0 = OCR0B-1;
 }
