@@ -60,8 +60,9 @@ int main() {
 		ADCSRA |= (1 << ADSC);
 		//wait until done
 		while(ADCSRA & (1 << ADSC));
-		pos = ADCH;
-		OCR0B = pos;
+		//position goes from 0 to 128
+		pos = ADCH>>1;
+		OCR0B = 130 - pos;
 	}	
 	
 	return 0;
